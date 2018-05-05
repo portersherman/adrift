@@ -30,7 +30,7 @@ Point.prototype.getTrig = function() {
 
 Point.prototype.update = function(remainderX, remainderY) {
 	var newDir;
-	this.lifetime -= 1;
+	this.lifetime -= 0.5;
 	this.size = this.maxSize*(this.lifetime/this.maxLifetime);
 	this.x += Math.cos(this.dir) * (0.5 * (1 - (this.size/this.maxSize)));
 	this.y += Math.sin(this.dir) * (0.5 * (1 - (this.size/this.maxSize)));
@@ -38,7 +38,7 @@ Point.prototype.update = function(remainderX, remainderY) {
 		newDir = getAngleFromPixel(wrapX(this.x, remainderX, remainderY), wrapY(this.y, remainderX, remainderY));
 		if ((Math.abs(newDir - this.dir) > 0.05) && (this.trig) && (millis() - this.emitted > 500)) {
 			this.emitted = millis();
-			sendOsc('/cross', this.size);
+			// sendOsc('/cross', this.size);
 		}
 		this.dir = newDir;
 	}
@@ -142,7 +142,7 @@ Chain.prototype.draw = function(link, remainderX, remainderY) {
 		}
 	}
 	if ((this.intersected != intersected) && (intersected == false)) {
-		sendOsc('/intersect', [wrapX(this.xInt, remainderX, remainderY), wrapY(this.yInt, remainderX, remainderY), windowWidth, windowHeight]);
+		// sendOsc('/intersect', [wrapX(this.xInt, remainderX, remainderY), wrapY(this.yInt, remainderX, remainderY), windowWidth, windowHeight]);
 	}
 	this.intersected = intersected;
 	this.drawn = true;
@@ -152,7 +152,7 @@ Chain.prototype.trig = function() {
 	for (var i = 0; i < this.points.length; i++) {
 		if (this.intersections[i] || this.points[i].getTrig()) {
 			if (!this.points[i].getTrig()) {
-				sendOsc('/trig', [i]);	
+				// sendOsc('/trig', [i]);	
 			}
 			this.points[i].setTrig(true);
 		} else {

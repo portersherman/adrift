@@ -19,11 +19,7 @@ var nodeSize, globalColor;
 var mode;
 var arrowSize;
 var manip;
-
-// osc
-var incomingPort = 3333;
-var connect_to_this_ip = window.location.hostname;
-var outgoingPort = 3334;
+var oscs, filter;
 
 function preload() {
 	arrow = "↣";
@@ -40,11 +36,11 @@ function setup() {
 	ripple = [];
 	poles = [];
 	holes = [];
+	oscs = {};
 	mode = "prod";
 	processURL(new URL(window.location.href));
 	start = (mode == "dev");
 	nodeSize = (arrowSize == "lg") ? 100 : 75;
-	globalColor = color(29, 11, 50);
 	spawns = new Chain("spawn", maxChainLength);
 
 	relAnglesPoles = { 	"up": (1/2)*PI,
@@ -57,15 +53,31 @@ function setup() {
 					"right": 0,
 					"left": PI }
 
-	setupMesh();	
+	setupMesh();
+	filter = new p5.LowPass();
+	filter.freq(350);
+	for (var i = 0; i < sizeY; i++) {
+
+		oscs[i] = {};
+
+		var newOsc = new p5.Oscillator();
+		newOsc.setType('sawtooth');
+		newOsc.freq(midiToFreq((i / sizeY * 12) + 36));
+		newOsc.amp(0);
+		newOsc.disconnect();
+ 		newOsc.connect(filter);
+		newOsc.start();
+
+		oscs[i]["osc"] = newOsc;
+
+	}
 	controllerX = -1;
 	controllerY = -1;
 	manip = false;
-	setupOsc(incomingPort, outgoingPort, connect_to_this_ip);
-	// setupOsc(outgoingPort, incomingPort, connect_to_this_ip);
 }
 
 function draw() {
+	setColor();
 	drawBackground(globalColor);
 	if (start) {
 		if (mouseIsPressed) {
@@ -132,7 +144,6 @@ function setupMesh(oldAngles, oldTouched, oldTouchedAt, oldRipple, oldPoles, old
 	  		} else {
 				holes[sizeX*j + i] = (Math.random() < 0.01);
 	  		}
-	  		// image(arrow, i*nodeSize + remainderX / 2, j*nodeSize + remainderY/2);
 	  	}
 	}
 }
@@ -142,7 +153,6 @@ function drawBackground(color) {
 	r = color.levels[0];
 	g = color.levels[1];
 	b = color.levels[2];
-	// console.log(r + " " + g + " " + b);
 	if (mode == "dev") {
 		background(color);
 		return;
@@ -168,7 +178,7 @@ function drawBackground(color) {
 
 function drawWelcome() {
 	var titleFactor = (.25) * (frameCount) + 200;
-	var subTitleFactor = (.05) * (frameCount) + 200;
+	var subTitleFactor = 200;
 	if (frameCount < dispLength/3) {
 		fill(255, 255*(frameCount)/(dispLength/3));
 	} else if (frameCount < 2*dispLength/3) {
@@ -241,14 +251,12 @@ function drawMesh() {
 						textAlign(CENTER);
 						textSize(nodeSize);
 						text(arrow, 0, nodeSize/4);
-						//image(arrow_rippled, 0, 0);
 					} else {
 						fill(255);
 						noStroke();
 						textAlign(CENTER);
 						textSize(nodeSize);
 						text(arrow, 0, nodeSize/4);
-						//image(arrow, 0, 0);
 					}
 				}
 			}
@@ -264,9 +272,9 @@ function manipMesh() {
   	if ((imgX >= 0) && (imgY >= 0) && (imgX < sizeX) && (imgY < sizeY) && (manip)) {
   		var delta = (mouseY - startY)/windowHeight;
   		if (touched[sizeX*imgY + imgX] == false) {
-    		sendOsc('/touch', [imgX, imgY, sizeX, sizeY]);
-    	} else {
-    		sendOsc('/angle', [angles[sizeX*imgY + imgX]]);
+  			oscs[imgY]["osc"].pan((imgX / sizeX - 0.5) * 2);
+    		oscs[imgY]["osc"].amp(0, 0.25);
+    		oscs[imgY]["osc"].amp(0.25, 5);
     	}
     	angles[sizeX*imgY + imgX] += 0.1*delta;
     	angles[sizeX*imgY + imgX] = angles[sizeX*imgY + imgX] % (2*PI);
@@ -284,7 +292,7 @@ function drawCursor() {
 
 function spawn() {
 	if (Math.random() < spawnProb) {
-		sendOsc("/spawn", [1]);
+		// sendOsc("/spawn", [1]);
 		spawns.add(Math.random()*(windowWidth - 100) + 50, Math.random()*(windowHeight - 100) + 50, maxSize, maxLifetime, globalColor);
 	}
 }
@@ -323,18 +331,8 @@ function windowResized() {
   	setupMesh(angles, touched, touchedAt, ripple, poles, holes);
 }
 
-function receiveOsc(address, value) {
-	console.log("received OSC: " + address + ", " + value);
-		
-	if (address == '/controller') {
-		controllerX = value[0];
-		controllerY = value[1];
-	}
-
-	if (address == '/color') {
-		globalColor = color(value[0], value[1], value[2]);
-		// debugger;
-	}
+function setColor() {
+	globalColor = setGlobalColor(frameCount);
 }
 
 function getAngleFromPixel(x, y) {
@@ -354,9 +352,8 @@ function getHolesFromPixel(x, y) {
 function disp() {
 	for (var i = 0; i < sizeX; i++) {
 	  	for (var j = 0; j < sizeY; j++) {
-	  		// angles[sizeX*j + i] += (Math.random()-0.5) * 0.01;
 	  		var totalDelta = 0;
-	  		
+
 	  		// up
 	  		totalDelta += propDelta(sizeX*j + i, sizeX*((j+sizeY-1)%sizeY) + i, "up");
 
@@ -374,7 +371,7 @@ function disp() {
 	  		if ((Math.abs(totalDelta) < 0.3) && (touched[sizeX*j+i] == true)) {
 	  			if (millis() - touchedAt[sizeX*j+i] > 1000) {
 	  				touched[sizeX*j+i] = false;	
-	  				sendOsc('/noteoff', [i, j]);
+	  				oscs[j]["osc"].amp(0, 5);
 	  			}
 	  		}
 	  	}

@@ -53,6 +53,11 @@ function HueShift(h,s) {
 function min3(a,b,c) { 
     return (a<b)?((a<c)?a:c):((b<c)?b:c); 
 } 
+
 function max3(a,b,c) { 
     return (a>b)?((a>c)?a:c):((b>c)?b:c); 
+}
+
+function setGlobalColor(frame) {
+    return color(205*((Math.cos(frame/1000 + 1.75)+1)/2) + 20, 205*((Math.cos(frame/2000 + 0.5)+1)/2) + 20, 205*((Math.cos(frame/3000 + 0.25)+1)/2) + 20);
 }
