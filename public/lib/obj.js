@@ -38,7 +38,7 @@ Point.prototype.update = function(remainderX, remainderY) {
 		newDir = getAngleFromPixel(wrapX(this.x, remainderX, remainderY), wrapY(this.y, remainderX, remainderY));
 		if ((Math.abs(newDir - this.dir) > 0.05) && (this.trig) && (millis() - this.emitted > 500)) {
 			this.emitted = millis();
-			// sendOsc('/cross', this.size);
+			crossEnv.play();
 		}
 		this.dir = newDir;
 	}
@@ -141,8 +141,8 @@ Chain.prototype.draw = function(link, remainderX, remainderY) {
 			this.intersections[i] = false;
 		}
 	}
-	if ((this.intersected != intersected) && (intersected == false)) {
-		// sendOsc('/intersect', [wrapX(this.xInt, remainderX, remainderY), wrapY(this.yInt, remainderX, remainderY), windowWidth, windowHeight]);
+	if ((this.intersected != intersected) && (intersected == true)) {
+		intEnv.play();
 	}
 	this.intersected = intersected;
 	this.drawn = true;
@@ -152,7 +152,7 @@ Chain.prototype.trig = function() {
 	for (var i = 0; i < this.points.length; i++) {
 		if (this.intersections[i] || this.points[i].getTrig()) {
 			if (!this.points[i].getTrig()) {
-				// sendOsc('/trig', [i]);	
+				trigEnv.play();
 			}
 			this.points[i].setTrig(true);
 		} else {

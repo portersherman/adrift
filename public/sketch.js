@@ -4,10 +4,10 @@ const maxChainLength = 50;
 const alignTime = 100;
 const spawnProb = 0.00625;
 const dispLength = 1000;
-const maxSize = 100;
 
 // p5
 var arrow;
+var maxSize;
 var remainderX, remainderY, sizeX, sizeY;
 var angles, touched, touchedAt, ripple, poles, holes;
 var spawns;
@@ -20,6 +20,8 @@ var mode;
 var arrowSize;
 var manip;
 var oscs, filter;
+var intOsc, trigOsc, crossOsc, spawnOsc;
+var intEnv, trigEnv, crossEnv, spawnEnv;
 
 function preload() {
 	arrow = "↣";
@@ -40,7 +42,10 @@ function setup() {
 	mode = "prod";
 	processURL(new URL(window.location.href));
 	start = (mode == "dev");
-	nodeSize = (arrowSize == "lg") ? 100 : 75;
+	// nodeSize = (arrowSize == "lg") ? 100 : 75;
+	// maxSize = (arrowSize == "lg") ? 150 : 100;
+	nodeSize = windowHeight / 12.25
+	maxSize = (windowHeight / 12) * 2; 
 	spawns = new Chain("spawn", maxChainLength);
 
 	relAnglesPoles = { 	"up": (1/2)*PI,
@@ -54,23 +59,77 @@ function setup() {
 					"left": PI }
 
 	setupMesh();
+
+	var backVol = 0.4;
+
 	filter = new p5.LowPass();
 	filter.freq(350);
 	for (var i = 0; i < sizeY; i++) {
 
 		oscs[i] = {};
 
+		var newEnv = new p5.Env();
+		newEnv.setADSR(5, 1, backVol, 5);
+		newEnv.setRange(backVol, 0);
+
+		oscs[i]["env"] = newEnv;
+
 		var newOsc = new p5.Oscillator();
-		newOsc.setType('sawtooth');
+		newOsc.setType("sawtooth");
 		newOsc.freq(midiToFreq((i / sizeY * 12) + 36));
-		newOsc.amp(0);
+		newOsc.amp(newEnv);
 		newOsc.disconnect();
  		newOsc.connect(filter);
 		newOsc.start();
 
 		oscs[i]["osc"] = newOsc;
+		oscs[i]["playing"] = false;
 
 	}
+
+	var foreVol = 0.5;
+
+	intEnv = new p5.Env();
+	intEnv.setADSR(0.125, 0.25, foreVol, 0.125);
+	intEnv.setRange(foreVol, 0);
+	intOsc = new p5.Oscillator(midiToFreq(67), "sawtooth");
+	intOsc.amp(intEnv);
+	intOsc.disconnect();
+ 	intOsc.connect(filter);
+ 	intOsc.start();
+
+ 	spawnEnv = new p5.Env();
+	spawnEnv.setADSR(0.125, 0.25, foreVol, 0.125);
+	spawnEnv.setRange(foreVol, 0);
+	spawnOsc = new p5.Oscillator(midiToFreq(69), "sawtooth");
+	spawnOsc.amp(spawnEnv);
+	spawnOsc.disconnect();
+ 	spawnOsc.connect(filter);
+ 	spawnOsc.start();
+
+ 	trigEnv = new p5.Env();
+	trigEnv.setADSR(0.125, 0.25, foreVol, 0.125);
+	trigEnv.setRange(foreVol, 0);
+	trigOsc = new p5.Oscillator(midiToFreq(64), "sawtooth");
+	trigOsc.amp(trigEnv);
+	trigOsc.disconnect();
+ 	trigOsc.connect(filter);
+ 	trigOsc.start();
+
+ 	crossEnv = new p5.Env();
+	crossEnv.setADSR(0.125, 0.25, foreVol, 0.125);
+	crossEnv.setRange(foreVol, 0);
+	crossOsc = new p5.Oscillator(midiToFreq(62), "sawtooth");
+	crossOsc.amp(crossEnv);
+	crossOsc.disconnect();
+ 	crossOsc.connect(filter);
+ 	crossOsc.start();
+
+ 	filter.disconnect();
+
+ 	reverb = new p5.Reverb();
+	reverb.process(filter, 8, 37.5);
+
 	controllerX = -1;
 	controllerY = -1;
 	manip = false;
@@ -95,7 +154,7 @@ function draw() {
 
 function processURL(url) {
 	mode = (url.searchParams.get("mode")) ? url.searchParams.get("mode") : "prod";
-	arrowSize = (url.searchParams.get("size")) ? url.searchParams.get("size") : "md";
+	// arrowSize = (url.searchParams.get("size")) ? url.searchParams.get("size") : "lg";
 }
 
 function setupMesh(oldAngles, oldTouched, oldTouchedAt, oldRipple, oldPoles, oldHoles) {
@@ -271,10 +330,12 @@ function manipMesh() {
   	imgY = Math.floor((startY - remainderY/2) / nodeSize);
   	if ((imgX >= 0) && (imgY >= 0) && (imgX < sizeX) && (imgY < sizeY) && (manip)) {
   		var delta = (mouseY - startY)/windowHeight;
-  		if (touched[sizeX*imgY + imgX] == false) {
+  		if ((touched[sizeX*imgY + imgX] == false) && (!holes[sizeX*imgY + imgX]) && (!poles[sizeX*imgY + imgX])) {
 			oscs[imgY]["osc"].pan((imgX / sizeX - 0.5) * 2);
-    		oscs[imgY]["osc"].amp(0, 0.25);
-    		oscs[imgY]["osc"].amp(0.25, 5);
+			if (!oscs[imgY]["playing"]) {
+				oscs[imgY]["env"].triggerAttack();
+    			oscs[imgY]["playing"] = true;
+			}
     	}
     	angles[sizeX*imgY + imgX] += 0.1*delta;
     	angles[sizeX*imgY + imgX] = angles[sizeX*imgY + imgX] % (2*PI);
@@ -292,8 +353,8 @@ function drawCursor() {
 
 function spawn() {
 	if (Math.random() < spawnProb) {
-		// sendOsc("/spawn", [1]);
-		spawns.add(Math.random()*(windowWidth - 100) + 50, Math.random()*(windowHeight - 100) + 50, maxSize, maxLifetime, globalColor);
+		spawnEnv.play();
+		spawns.add(Math.random()*(windowWidth - 100) + 50, Math.random()*(windowHeight - 100) + 50, Math.random()*maxSize*0.85 + maxSize*0.15, maxLifetime, globalColor);
 	}
 }
 
@@ -314,11 +375,13 @@ function mousePressed() {
 	spawns.trig();
 	startX = mouseX;
 	startY = mouseY;
+	return false;
 }
 
 function mouseMoved() {
 	controllerX = -1;
 	controllerY = -1;
+	return false;
 }
 
 function doubleClicked() {
@@ -369,9 +432,12 @@ function disp() {
   			ripple[sizeX*j+i] = (totalDelta > 0.25);
 
 	  		if ((Math.abs(totalDelta) < 0.3) && (touched[sizeX*j+i] == true)) {
-	  			if (millis() - touchedAt[sizeX*j+i] > 1000) {
-	  				touched[sizeX*j+i] = false;	
-	  				oscs[j]["osc"].amp(0, 5);
+	  			if (millis() - touchedAt[sizeX*j+i] > 5000) {
+	  				touched[sizeX*j+i] = false;
+	  				if (oscs[j]["playing"]) {
+	  					oscs[j]["env"].triggerRelease();
+	  					oscs[j]["playing"] = false;
+	  				}
 	  			}
 	  		}
 	  	}

@@ -59,5 +59,5 @@ function max3(a,b,c) {
 }
 
 function setGlobalColor(frame) {
-    return color(205*((Math.cos(frame/1000 + 1.75)+1)/2) + 20, 205*((Math.cos(frame/2000 + 0.5)+1)/2) + 20, 205*((Math.cos(frame/3000 + 0.25)+1)/2) + 20);
+    return color(205*((Math.cos(frame/2000 + 1.75)+1)/2) + 20, 205*((Math.cos(frame/2500 + 0.5)+1)/2) + 20, 205*((Math.cos(frame/3000 + 0.25)+1)/2) + 20);
 }
