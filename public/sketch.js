@@ -272,7 +272,7 @@ function manipMesh() {
   	if ((imgX >= 0) && (imgY >= 0) && (imgX < sizeX) && (imgY < sizeY) && (manip)) {
   		var delta = (mouseY - startY)/windowHeight;
   		if (touched[sizeX*imgY + imgX] == false) {
-  			oscs[imgY]["osc"].pan((imgX / sizeX - 0.5) * 2);
+			oscs[imgY]["osc"].pan((imgX / sizeX - 0.5) * 2);
     		oscs[imgY]["osc"].amp(0, 0.25);
     		oscs[imgY]["osc"].amp(0.25, 5);
     	}
